@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Neon Boxing Interval Timer</title>
+  <style>
+    :root{
+    --bg: #05070b;
+    --panel: rgba(255,255,255,.06);
+    --panel2: rgba(255,255,255,.10);
+    --text: rgba(255,255,255,.92);
+    --muted: rgba(255,255,255,.58);
+
+    /* NEW: Neon Blue */
+    --blue: #3aa6ff;
+    --blue2:#1fe0ff;
+    --danger:#ff3b6b;
+
+    --ringTrack: rgba(255,255,255,.10);
+    --shadow: 0 20px 70px rgba(0,0,0,.55);
+    --radius: 18px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --ui: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+    /* ---------- Base / Background ---------- */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+    margin: 0;
+    font-family: var(--ui);
+    color: var(--text);
+    background: radial-gradient(1200px 900px at 20% 20%, rgba(58,166,255,.10), transparent 60%),
+                radial-gradient(900px 700px at 80% 30%, rgba(31,224,255,.08), transparent 55%),
+                radial-gradient(900px 800px at 50% 90%, rgba(255,59,107,.06), transparent 55%),
+                var(--bg);
+    overflow-x: hidden;
+    }
+
+    /* Subtle geometric pattern */
+    body::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .18;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.05) 0 2px, transparent 2px 20px),
+        linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 18px);
+      background-size: 60px 60px, 50px 50px;
+      mix-blend-mode: screen;
+      filter: blur(.2px);
+    }
+
+    /* ---------- Layout ---------- */
+    .app{
+      min-height: 100%;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 18px;
+      padding: 18px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 980px){
+      .app{
+        grid-template-columns: 1fr;
+        padding: 14px;
+      }
+    }
+
+    .main{
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    /* ---------- Header / Status ---------- */
+    .topbar{
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--panel), rgba(255,255,255,.03));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .brand{
+      display:flex; flex-direction:column; gap:2px;
+      line-height: 1.1;
+    }
+    .brand .title{
+      font-weight: 700;
+      letter-spacing: .5px;
+      font-size: 14px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.86);
+    }
+    .brand .hint{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status{
+      text-align: right;
+      display:flex;
+      flex-direction:column;
+      gap: 2px;
+    }
+    .phase{
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+    .round{
+      font-size: 14px;
+      font-weight: 650;
+      letter-spacing: .2px;
+    }
+
+    /* ---------- Timer Card ---------- */
+    .timerWrap{
+      width: min(560px, 92vw);
+      aspect-ratio: 1/1;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      position: relative;
+      background: radial-gradient(circle at 50% 45%,
+        rgba(55,255,139,.08),
+        rgba(255,255,255,.02) 40%,
+        rgba(0,0,0,.25) 68%,
+        rgba(0,0,0,.55));
+    box-shadow:
+    0 0 0 1px rgba(255,255,255,.06),
+    0 30px 120px rgba(0,0,0,.70),
+    0 0 50px rgba(58,166,255,.14);
+      overflow: hidden;
+      transform: translateZ(0);
+      animation: cardIn .55s ease-out both;
+    }
+
+    @keyframes cardIn{
+      from{ opacity: 0; transform: scale(.98); }
+      to{ opacity: 1; transform: scale(1); }
+    }
+
+    /* Neon glow ring */
+    .timerWrap::after{
+    content:"";
+    position:absolute;
+    inset: 12px;
+    border-radius: 999px;
+    box-shadow:
+        0 0 22px rgba(58,166,255,.42),
+        0 0 75px rgba(31,224,255,.16);
+    pointer-events:none;
+    }
+
+    /* Pulse when warning */
+    .timerWrap.warning::after{
+      animation: glowPulse 1.05s ease-in-out infinite;
+      box-shadow:
+        0 0 22px rgba(255,59,107,.38),
+        0 0 70px rgba(255,59,107,.18);
+    }
+    @keyframes glowPulse{
+      0%,100%{ transform: scale(1); opacity: .95; }
+      50%{ transform: scale(1.012); opacity: 1; }
+    }
+
+    /* SVG ring */
+    .ring{
+      position:absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .ring circle{
+      fill: none;
+      stroke-linecap: round;
+    }
+    .ring .track{
+      stroke: var(--ringTrack);
+      stroke-width: 14;
+    }
+    .ring .progress{
+    stroke: rgba(58,166,255,.96);
+    stroke-width: 14;
+    filter: drop-shadow(0 0 8px rgba(58,166,255,.35))
+            drop-shadow(0 0 22px rgba(31,224,255,.18));
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    transition: stroke-dashoffset .25s linear;
+    }
+    .timerWrap.warning .ring .progress{
+      stroke: rgba(255,59,107,.95);
+      filter: drop-shadow(0 0 8px rgba(255,59,107,.35))
+              drop-shadow(0 0 22px rgba(255,59,107,.18));
+    }
+
+    .timerText{
+      position: relative;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap: 8px;
+      padding: 12px 14px;
+      text-align:center;
+      user-select: none;
+    }
+
+    .time{
+    font-family: var(--mono);
+    font-size: clamp(44px, 8.5vw, 78px);
+    letter-spacing: .04em;
+    font-weight: 800;
+    text-shadow:
+        0 0 18px rgba(58,166,255,.22),
+        0 0 55px rgba(31,224,255,.12);
+    }
+    .timerWrap.warning .time{
+      text-shadow:
+        0 0 18px rgba(255,59,107,.25),
+        0 0 55px rgba(255,59,107,.10);
+    }
+
+    .subline{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items:center;
+      justify-content:center;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .pill{
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+
+    /* ---------- Controls ---------- */
+    .controls{
+      width: 100%;
+      max-width: 680px;
+      display:flex;
+      gap: 12px;
+      justify-content:center;
+      flex-wrap: wrap;
+      padding: 12px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--panel), rgba(255,255,255,.03));
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(10px);
+    }
+
+    button{
+      appearance: none;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      border-radius: 14px;
+      padding: 14px 18px;
+      min-width: 120px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(10,12,14,.92);
+      background: rgba(58,166,255,.95);
+        box-shadow:
+        0 10px 30px rgba(58,166,255,.16),
+        0 0 0 1px rgba(255,255,255,.05) inset;
+      transform: translateZ(0);
+      transition: transform .12s ease, filter .12s ease, opacity .12s ease, background .12s ease;
+    }
+    button:hover{ transform: translateY(-1px) scale(1.01); filter: brightness(1.02); }
+    button:active{ transform: translateY(0) scale(.99); }
+    button:disabled{
+      cursor:not-allowed;
+      opacity:.45;
+      filter: saturate(.7);
+    }
+
+    .btn-secondary{
+      background: rgba(255,255,255,.12);
+      color: rgba(255,255,255,.88);
+      box-shadow: 0 10px 30px rgba(0,0,0,.22), 0 0 0 1px rgba(255,255,255,.07) inset;
+    }
+
+    .btn-danger{
+      background: rgba(255,59,107,.92);
+      color: rgba(10,12,14,.95);
+      box-shadow: 0 10px 30px rgba(255,59,107,.14), 0 0 0 1px rgba(255,255,255,.05) inset;
+    }
+
+    /* ---------- Settings Panel ---------- */
+    .panel{
+    border-radius: 22px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+    box-shadow: 0 25px 90px rgba(0,0,0,.55);
+    border: 1px solid rgba(255,255,255,.10);
+    backdrop-filter: blur(12px);
+    padding: 16px;
+    display:flex;
+    flex-direction:column;
+    gap: 12px;
+    height: fit-content;
+    position: sticky;
+    top: 14px;
+    align-self: start;
+    overflow: hidden;
+    }
+
+    /* Top accent stripe */
+    .panel::before{
+    content:"";
+    position:absolute;
+    left: 0; right: 0; top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, rgba(58,166,255,.0), rgba(58,166,255,.9), rgba(31,224,255,.7), rgba(58,166,255,0));
+    opacity: .9;
+    }
+
+    .panel h2{
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.85);
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    }
+
+    .grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    }
+
+    .field{
+    position: relative;
+    display:flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(0,0,0,.22);
+    border: 1px solid rgba(255,255,255,.10);
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    transition: transform .12s ease, border-color .12s ease;
+    }
+
+    .field:hover{
+    transform: translateY(-1px);
+    border-color: rgba(58,166,255,.22);
+    }
+
+    .labelRow{
+    display:flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    }
+
+    label{
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.72);
+    }
+
+    .help{
+    font-size: 12px;
+    color: rgba(255,255,255,.55);
+    font-family: var(--mono);
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.04);
+    }
+
+    input{
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.92);
+    font-family: var(--mono);
+    letter-spacing: .03em;
+    outline: none;
+    }
+
+    .panelFooter{
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,.10);
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+    }
+
+    .totalBox{
+    display:flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items:center;
+    padding: 12px 12px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(58,166,255,.14), rgba(0,0,0,.18));
+    border: 1px solid rgba(58,166,255,.25);
+    }
+
+    .totalBox span{
+    font-size: 11px;
+    color: rgba(255,255,255,.70);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    }
+
+    .totalBox strong{
+    font-family: var(--mono);
+    letter-spacing: .04em;
+    color: rgba(255,255,255,.92);
+    }
+
+    .kbd{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(255,255,255,.70);
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items:center;
+    }
+    .kbd code{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 3px 6px;
+      border-radius: 8px;
+      color: rgba(255,255,255,.85);
+    }
+
+    /* Workout complete overlay text */
+    .complete{
+      position:absolute;
+      inset: 0;
+      display:grid;
+      place-items:center;
+      background: radial-gradient(circle at 50% 40%, rgba(0,0,0,.20), rgba(0,0,0,.72));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+    }
+    .complete.show{
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .complete .box{
+      text-align:center;
+      padding: 18px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      animation: pop .25s ease-out both;
+    }
+    @keyframes pop{
+      from{ transform: scale(.98); opacity: .0; }
+      to{ transform: scale(1); opacity: 1; }
+    }
+    .complete h3{
+      margin: 0 0 6px 0;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      font-size: 14px;
+    }
+    .complete p{
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="main">
+      <div class="topbar">
+        <div class="brand">
+          <div class="title">Interval Training Timer</div>
+          <div class="hint">Space: Start/Pause • R: Reset</div>
+        </div>
+        <div class="status">
+          <div class="phase" id="phaseText">Prepare</div>
+          <div class="round" id="roundText">Round 0 / 12</div>
+        </div>
+      </div>
+
+      <div class="timerWrap" id="timerWrap" aria-live="polite">
+        <!-- SVG Progress Ring -->
+        <svg class="ring" viewBox="0 0 100 100" role="img" aria-label="Progress ring">
+          <circle class="track" cx="50" cy="50" r="42"></circle>
+          <circle class="progress" id="progressRing" cx="50" cy="50" r="42"></circle>
+        </svg>
+
+        <div class="timerText">
+          <div class="time" id="timeText">00:25</div>
+          <div class="subline">
+            <div class="pill" id="segmentText">PREPARE</div>
+            <div class="pill">TOTAL <span id="totalElapsed">00:00</span></div>
+          </div>
+        </div>
+
+        <div class="complete" id="completeOverlay">
+          <div class="box">
+            <h3>Workout Complete</h3>
+            <p id="completeMeta">Total time: 00:00</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn">Start</button>
+        <button class="btn-secondary" id="pauseBtn" disabled>Pause</button>
+        <button class="btn-danger" id="resetBtn">Reset</button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <h2>Settings</h2>
+
+      <div class="grid">
+        <div class="field">
+          <div class="labelRow">
+            <label for="roundsInput">Number of rounds</label>
+            <div class="help">default 12</div>
+          </div>
+          <input id="roundsInput" type="number" min="1" max="99" value="12" />
+        </div>
+
+        <div class="field">
+          <div class="labelRow">
+            <label for="roundTimeInput">Round time (MM:SS)</label>
+            <div class="help">default 03:00</div>
+          </div>
+          <input id="roundTimeInput" type="text" inputmode="numeric" value="03:00" />
+        </div>
+
+        <div class="field">
+          <div class="labelRow">
+            <label for="restTimeInput">Rest time (MM:SS)</label>
+            <div class="help">default 01:00</div>
+          </div>
+          <input id="restTimeInput" type="text" inputmode="numeric" value="01:00" />
+        </div>
+
+        <div class="field">
+          <div class="labelRow">
+            <label for="prepareTimeInput">Prepare time (MM:SS)</label>
+            <div class="help">default 00:25</div>
+          </div>
+          <input id="prepareTimeInput" type="text" inputmode="numeric" value="00:25" />
+        </div>
+
+        <div class="field">
+          <div class="labelRow">
+            <label for="warnTimeInput">Round end warning (MM:SS)</label>
+            <div class="help">default 00:10</div>
+          </div>
+          <input id="warnTimeInput" type="text" inputmode="numeric" value="00:10" />
+        </div>
+      </div>
+
+      <div class="panelFooter">
+        <div class="totalBox">
+          <span>Total workout duration</span>
+          <strong id="totalPlanned">00:00</strong>
+        </div>
+        <div class="kbd">
+          <span>Shortcuts:</span>
+          <code>Space</code><span>Start/Pause</span>
+          <code>R</code><span>Reset</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    /**
+     * Neon Boxing Interval Timer
+     * - Phases: PREPARE -> ROUND -> REST, repeated for totalRounds
+     * - Sounds: start of round, end of round, warning (N seconds remaining in round)
+     * - Settings: saved to LocalStorage and applied dynamically (no reload)
+     */
+
+    // ---------- Utilities ----------
+    const pad2 = (n) => String(n).padStart(2, "0");
+
+    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+    function formatMMSS(totalSeconds){
+      totalSeconds = Math.max(0, Math.floor(totalSeconds));
+      const mm = Math.floor(totalSeconds / 60);
+      const ss = totalSeconds % 60;
+      return `${pad2(mm)}:${pad2(ss)}`;
+    }
+
+    /**
+     * Parse time input:
+     * Accepts "MM:SS", "M:SS", "SS" (treated as seconds), or "MMSS" (e.g., 130 => 1:30)
+     */
+    function parseTimeToSeconds(str){
+      const s = String(str || "").trim();
+
+      // If mm:ss
+      if (s.includes(":")){
+        const [mRaw, sRaw] = s.split(":");
+        const mm = Number(mRaw);
+        const ss = Number(sRaw);
+        if (!Number.isFinite(mm) || !Number.isFinite(ss)) return null;
+        return clamp(mm, 0, 999) * 60 + clamp(ss, 0, 59);
+      }
+
+      // Digits only
+      if (/^\d+$/.test(s)){
+        const num = Number(s);
+        if (!Number.isFinite(num)) return null;
+
+        // If 0..5999 treat as seconds if small, else MMSS style if 3-4 digits
+        if (s.length <= 2) return clamp(num, 0, 59); // seconds
+        if (s.length === 3){ // MSS
+          const mm = Math.floor(num / 100);
+          const ss = num % 100;
+          return mm * 60 + clamp(ss, 0, 59);
+        }
+        if (s.length >= 4){ // MMSS (take last two as SS)
+          const mm = Math.floor(num / 100);
+          const ss = num % 100;
+          return clamp(mm, 0, 999) * 60 + clamp(ss, 0, 59);
+        }
+      }
+
+      return null;
+    }
+
+    function normalizeTimeInput(inputEl, fallbackSeconds){
+      const parsed = parseTimeToSeconds(inputEl.value);
+      const seconds = (parsed === null) ? fallbackSeconds : parsed;
+      inputEl.value = formatMMSS(seconds);
+      return seconds;
+    }
+
+    // ---------- Simple WebAudio beeps (no external files) ----------
+    class Beeper{
+      constructor(){
+        this.ctx = null;
+        this.enabled = true;
+      }
+      _ensure(){
+        if (!this.ctx){
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+        }
+      }
+      async _resumeIfNeeded(){
+        if (!this.ctx) return;
+        if (this.ctx.state === "suspended") await this.ctx.resume();
+      }
+      async beep({freq=880, duration=0.09, type="sine", gain=0.05} = {}){
+        if (!this.enabled) return;
+        this._ensure();
+        await this._resumeIfNeeded();
+
+        const t0 = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+
+        // Small envelope to avoid clicks
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+        osc.connect(g);
+        g.connect(this.ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + duration + 0.02);
+      }
+      async pattern(name){
+        // Distinct patterns: start, end, warning
+        if (name === "roundStart"){
+          await this.beep({freq: 920, duration: 0.08, gain: 0.06});
+          await this.beep({freq: 1160, duration: 0.08, gain: 0.06});
+        } else if (name === "roundEnd"){
+          await this.beep({freq: 520, duration: 0.10, gain: 0.06, type:"triangle"});
+          await this.beep({freq: 420, duration: 0.12, gain: 0.06, type:"triangle"});
+        } else if (name === "warning"){
+          await this.beep({freq: 760, duration: 0.07, gain: 0.05});
+          await this.beep({freq: 760, duration: 0.07, gain: 0.05});
+        } else if (name === "prepareEnd"){
+          await this.beep({freq: 980, duration: 0.08, gain: 0.05});
+        }
+      }
+    }
+
+    // ---------- Timer Engine ----------
+    const SEGMENT = {
+      PREPARE: "PREPARE",
+      ROUND: "ROUND",
+      REST: "REST",
+      COMPLETE: "COMPLETE",
+    };
+
+    const DEFAULTS = Object.freeze({
+      totalRounds: 12,
+      roundSeconds: 3 * 60,
+      restSeconds: 1 * 60,
+      prepareSeconds: 25,
+      warnSeconds: 10,
+    });
+
+    const STORAGE_KEY = "neonIntervalTimer.settings.v1";
+
+    class IntervalTimer{
+      constructor({onTick, onStateChange, onComplete, onSound}){
+        this.onTick = onTick;
+        this.onStateChange = onStateChange;
+        this.onComplete = onComplete;
+        this.onSound = onSound;
+
+        this.settings = {...DEFAULTS};
+        this.reset(true);
+      }
+
+      loadSettings(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const data = JSON.parse(raw);
+          // Basic validation + clamp
+          this.settings.totalRounds = clamp(Number(data.totalRounds) || DEFAULTS.totalRounds, 1, 99);
+          this.settings.roundSeconds = clamp(Number(data.roundSeconds) || DEFAULTS.roundSeconds, 5, 60 * 60);
+          this.settings.restSeconds = clamp(Number(data.restSeconds) || DEFAULTS.restSeconds, 0, 60 * 60);
+          this.settings.prepareSeconds = clamp(Number(data.prepareSeconds) || DEFAULTS.prepareSeconds, 0, 60 * 60);
+          this.settings.warnSeconds = clamp(Number(data.warnSeconds) || DEFAULTS.warnSeconds, 0, 60 * 60);
+        }catch(e){
+          // Ignore malformed storage
+        }
+      }
+
+      saveSettings(){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
+      }
+
+      applySettings(next){
+        // Apply dynamically (even during run). Keeps current segment progress coherent.
+        const prevSegTotal = this._segmentTotalSeconds();
+
+        this.settings = {
+          totalRounds: clamp(next.totalRounds, 1, 99),
+          roundSeconds: clamp(next.roundSeconds, 5, 60 * 60),
+          restSeconds: clamp(next.restSeconds, 0, 60 * 60),
+          prepareSeconds: clamp(next.prepareSeconds, 0, 60 * 60),
+          warnSeconds: clamp(next.warnSeconds, 0, 60 * 60),
+        };
+
+        // If current segment is ROUND/REST/PREPARE, rescale remaining time proportionally
+        const newSegTotal = this._segmentTotalSeconds();
+        if (prevSegTotal > 0 && newSegTotal > 0 && this.segment !== SEGMENT.COMPLETE){
+          const progress = 1 - (this.remaining / prevSegTotal);
+          this.remaining = clamp(Math.round(newSegTotal * (1 - progress)), 0, newSegTotal);
+        }
+
+        // If rounds reduced below current, clamp round index
+        this.currentRound = clamp(this.currentRound, 0, this.settings.totalRounds);
+
+        this._emitAll();
+        this.saveSettings();
+      }
+
+      reset(silent=false){
+        this.running = false;
+        this.segment = SEGMENT.PREPARE;
+        this.currentRound = 0;           // 0 during prepare
+        this.remaining = this.settings.prepareSeconds;
+        this.totalElapsed = 0;
+        this._warnFired = false;
+        this._complete = false;
+        if (!silent) this._emitAll();
+      }
+
+      start(){
+        if (this.running || this._complete) return;
+        this.running = true;
+        this._tickLoop();
+        this.onStateChange?.(this.getState());
+      }
+
+      pause(){
+        if (!this.running) return;
+        this.running = false;
+        if (this._raf) cancelAnimationFrame(this._raf);
+        this._lastTs = null;
+        this.onStateChange?.(this.getState());
+      }
+
+      toggle(){
+        if (this.running) this.pause();
+        else this.start();
+      }
+
+      getState(){
+        const segTotal = this._segmentTotalSeconds();
+        const progress = segTotal > 0 ? (1 - this.remaining / segTotal) : 0;
+        return {
+          running: this.running,
+          segment: this.segment,
+          currentRound: this.currentRound,
+          totalRounds: this.settings.totalRounds,
+          remaining: this.remaining,
+          segmentTotal: segTotal,
+          progress: clamp(progress, 0, 1),
+          totalElapsed: this.totalElapsed,
+          warnActive: this._isWarnActive(),
+          complete: this._complete,
+        };
+      }
+
+      plannedTotalDuration(){
+        const {totalRounds, roundSeconds, restSeconds, prepareSeconds} = this.settings;
+        // Prepare happens once at the beginning.
+        // Rest happens after each round except the last.
+        const restTotal = Math.max(0, totalRounds - 1) * restSeconds;
+        return prepareSeconds + totalRounds * roundSeconds + restTotal;
+      }
+
+      _segmentTotalSeconds(){
+        const s = this.settings;
+        if (this.segment === SEGMENT.PREPARE) return s.prepareSeconds;
+        if (this.segment === SEGMENT.ROUND) return s.roundSeconds;
+        if (this.segment === SEGMENT.REST) return s.restSeconds;
+        return 0;
+      }
+
+      _isWarnActive(){
+        return this.segment === SEGMENT.ROUND && this.settings.warnSeconds > 0 && this.remaining <= this.settings.warnSeconds;
+      }
+
+      _emitAll(){
+        const st = this.getState();
+        this.onTick?.(st);
+        this.onStateChange?.(st);
+      }
+
+      _advanceSegment(){
+        this._warnFired = false;
+
+        if (this.segment === SEGMENT.PREPARE){
+          // Move into Round 1
+          this.segment = SEGMENT.ROUND;
+          this.currentRound = 1;
+          this.remaining = this.settings.roundSeconds;
+          this.onSound?.("roundStart");
+          return;
+        }
+
+        if (this.segment === SEGMENT.ROUND){
+          this.onSound?.("roundEnd");
+          // After round: either rest or complete
+          if (this.currentRound >= this.settings.totalRounds){
+            this.segment = SEGMENT.COMPLETE;
+            this.remaining = 0;
+            this.running = false;
+            this._complete = true;
+            this.onComplete?.(this.getState());
+            return;
+          }
+          // go rest
+          this.segment = SEGMENT.REST;
+          this.remaining = this.settings.restSeconds;
+          return;
+        }
+
+        if (this.segment === SEGMENT.REST){
+          // Next round
+          this.segment = SEGMENT.ROUND;
+          this.currentRound += 1;
+          this.remaining = this.settings.roundSeconds;
+          this.onSound?.("roundStart");
+          return;
+        }
+      }
+
+      _tickLoop(){
+        const step = (ts) => {
+          if (!this.running) return;
+
+          if (this._lastTs == null) this._lastTs = ts;
+          const dt = (ts - this._lastTs) / 1000;
+          this._lastTs = ts;
+
+          // Accumulate elapsed
+          this.totalElapsed += dt;
+
+          // Decrement remaining
+          this.remaining -= dt;
+
+          // Warning trigger (only once per round)
+          if (this.segment === SEGMENT.ROUND && !this._warnFired && this.settings.warnSeconds > 0){
+            if (this.remaining <= this.settings.warnSeconds && this.remaining > 0){
+              this._warnFired = true;
+              this.onSound?.("warning");
+            }
+          }
+
+          // Segment end
+          if (this.remaining <= 0){
+            // Carry leftover time into next segment to keep timing accurate
+            let carry = -this.remaining;
+            this._advanceSegment();
+
+            // If completed, emit once and stop.
+            if (this.segment === SEGMENT.COMPLETE){
+              this._emitAll();
+              return;
+            }
+
+            // Apply carry to next segment
+            this.remaining = Math.max(0, this.remaining - carry);
+          }
+
+          this.onTick?.(this.getState());
+          this._raf = requestAnimationFrame(step);
+        };
+
+        this._raf = requestAnimationFrame(step);
+      }
+    }
+
+    // ---------- DOM Wiring ----------
+    const el = {
+      phaseText: document.getElementById("phaseText"),
+      roundText: document.getElementById("roundText"),
+      segmentText: document.getElementById("segmentText"),
+      timeText: document.getElementById("timeText"),
+      totalElapsed: document.getElementById("totalElapsed"),
+      totalPlanned: document.getElementById("totalPlanned"),
+      timerWrap: document.getElementById("timerWrap"),
+      progressRing: document.getElementById("progressRing"),
+      completeOverlay: document.getElementById("completeOverlay"),
+      completeMeta: document.getElementById("completeMeta"),
+
+      startBtn: document.getElementById("startBtn"),
+      pauseBtn: document.getElementById("pauseBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+
+      roundsInput: document.getElementById("roundsInput"),
+      roundTimeInput: document.getElementById("roundTimeInput"),
+      restTimeInput: document.getElementById("restTimeInput"),
+      prepareTimeInput: document.getElementById("prepareTimeInput"),
+      warnTimeInput: document.getElementById("warnTimeInput"),
+    };
+
+    // SVG ring math
+    const R = 42;
+    const CIRC = 2 * Math.PI * R;
+    el.progressRing.style.strokeDasharray = `${CIRC} ${CIRC}`;
+    el.progressRing.style.strokeDashoffset = `${CIRC}`;
+
+    const beeper = new Beeper();
+
+    const timer = new IntervalTimer({
+      onTick: render,
+      onStateChange: renderControls,
+      onComplete: (st) => {
+        render(st);
+        showComplete(st);
+      },
+      onSound: (name) => beeper.pattern(name)
+    });
+
+    // Load persisted settings
+    timer.loadSettings();
+    syncInputsFromSettings();
+    // initial render
+    render(timer.getState());
+    renderControls(timer.getState());
+    updatePlannedTotal();
+
+    // ---------- Render ----------
+    function segmentLabel(seg){
+      if (seg === SEGMENT.PREPARE) return "PREPARE";
+      if (seg === SEGMENT.ROUND) return "ROUND";
+      if (seg === SEGMENT.REST) return "REST";
+      return "COMPLETE";
+    }
+
+    function render(st){
+      // Top status
+      el.phaseText.textContent = st.segment === SEGMENT.COMPLETE ? "Complete" : st.segment[0] + st.segment.slice(1).toLowerCase();
+      el.segmentText.textContent = segmentLabel(st.segment);
+
+      // Round text
+      const cur = (st.segment === SEGMENT.PREPARE) ? 0 : st.currentRound;
+      el.roundText.textContent = `Round ${cur} / ${st.totalRounds}`;
+
+      // Time display
+      el.timeText.textContent = formatMMSS(st.remaining);
+
+      // Total elapsed
+      el.totalElapsed.textContent = formatMMSS(st.totalElapsed);
+
+      // Warning pulse class
+      el.timerWrap.classList.toggle("warning", st.warnActive);
+
+      // Progress ring
+      const offset = CIRC * (1 - st.progress);
+      el.progressRing.style.strokeDashoffset = String(offset);
+
+      // Hide complete overlay unless complete
+      if (!st.complete){
+        el.completeOverlay.classList.remove("show");
+      }
+    }
+
+    function renderControls(st){
+      // Start disabled while running or complete
+      el.startBtn.disabled = st.running || st.complete;
+      el.pauseBtn.disabled = !st.running;
+      el.pauseBtn.textContent = st.running ? "Pause" : "Pause";
+    }
+
+    function showComplete(st){
+      el.completeMeta.textContent = `Total time: ${formatMMSS(st.totalElapsed)}`;
+      el.completeOverlay.classList.add("show");
+      renderControls(st);
+    }
+
+    // ---------- Settings <-> Engine ----------
+    function updatePlannedTotal(){
+      el.totalPlanned.textContent = formatMMSS(timer.plannedTotalDuration());
+    }
+
+    function syncInputsFromSettings(){
+      const s = timer.settings;
+      el.roundsInput.value = String(s.totalRounds);
+      el.roundTimeInput.value = formatMMSS(s.roundSeconds);
+      el.restTimeInput.value = formatMMSS(s.restSeconds);
+      el.prepareTimeInput.value = formatMMSS(s.prepareSeconds);
+      el.warnTimeInput.value = formatMMSS(s.warnSeconds);
+      updatePlannedTotal();
+    }
+
+    function applyInputsToTimer(){
+      const totalRounds = clamp(Number(el.roundsInput.value) || DEFAULTS.totalRounds, 1, 99);
+
+      const roundSeconds = normalizeTimeInput(el.roundTimeInput, DEFAULTS.roundSeconds);
+      const restSeconds = normalizeTimeInput(el.restTimeInput, DEFAULTS.restSeconds);
+      const prepareSeconds = normalizeTimeInput(el.prepareTimeInput, DEFAULTS.prepareSeconds);
+      const warnSeconds = normalizeTimeInput(el.warnTimeInput, DEFAULTS.warnSeconds);
+
+      timer.applySettings({ totalRounds, roundSeconds, restSeconds, prepareSeconds, warnSeconds });
+      updatePlannedTotal();
+
+      // If we changed prepare time and currently in prepare and not running, show updated default
+      render(timer.getState());
+    }
+
+    // Apply on input (debounced for typing)
+    let tDebounce = null;
+    function debounceApply(){
+      clearTimeout(tDebounce);
+      tDebounce = setTimeout(applyInputsToTimer, 180);
+    }
+
+    [el.roundsInput, el.roundTimeInput, el.restTimeInput, el.prepareTimeInput, el.warnTimeInput]
+      .forEach(inp => {
+        inp.addEventListener("input", debounceApply);
+        inp.addEventListener("blur", applyInputsToTimer);
+      });
+
+    // ---------- Controls ----------
+    el.startBtn.addEventListener("click", async () => {
+      // Make sure audio can start on user gesture
+      await beeper.beep({freq: 1200, duration: 0.02, gain: 0.0001}); // silent-ish "unlock"
+      timer.start();
+      renderControls(timer.getState());
+    });
+
+    el.pauseBtn.addEventListener("click", () => {
+      timer.pause();
+      renderControls(timer.getState());
+    });
+
+    el.resetBtn.addEventListener("click", () => {
+      // Reset settings to defaults + timer state
+      timer.applySettings({...DEFAULTS});
+      timer.reset(true);
+      timer.saveSettings(); // keep defaults persisted
+      syncInputsFromSettings();
+      render(timer.getState());
+      renderControls(timer.getState());
+    });
+
+    // ---------- Keyboard shortcuts ----------
+    window.addEventListener("keydown", (e) => {
+      // Ignore when typing in inputs
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+      const isTyping = tag === "input" || tag === "textarea";
+      if (isTyping) return;
+
+      if (e.code === "Space"){
+        e.preventDefault();
+        if (!timer.getState().complete){
+          timer.toggle();
+          renderControls(timer.getState());
+        }
+      }
+      if (e.key.toLowerCase() === "r"){
+        e.preventDefault();
+        el.resetBtn.click();
+      }
+    });
+
+    // ---------- Mobile niceties ----------
+    // Prevent double-tap zoom on buttons (keeps UX snappy)
+    document.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("touchstart", () => {}, {passive:true});
+    });
+
+  </script>
+</body>
+</html>
