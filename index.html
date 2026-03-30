@@ -24,7 +24,6 @@
     --ui: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
-    /* ---------- Base / Background ---------- */
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body{
@@ -80,7 +79,6 @@
       padding: 10px;
     }
 
-    /* ---------- Header / Status ---------- */
     .topbar{
       width: 100%;
       max-width: 680px;
@@ -129,7 +127,6 @@
       letter-spacing: .2px;
     }
 
-    /* ---------- Timer Card ---------- */
     .timerWrap{
       width: min(560px, 92vw);
       aspect-ratio: 1/1;
@@ -156,7 +153,6 @@
       to{ opacity: 1; transform: scale(1); }
     }
 
-    /* Neon glow ring */
     .timerWrap::after{
     content:"";
     position:absolute;
@@ -168,7 +164,6 @@
     pointer-events:none;
     }
 
-    /* Pulse when warning */
     .timerWrap.warning::after{
       animation: glowPulse 1.05s ease-in-out infinite;
       box-shadow:
@@ -180,7 +175,6 @@
       50%{ transform: scale(1.012); opacity: 1; }
     }
 
-    /* SVG ring */
     .ring{
       position:absolute;
       inset: 0;
@@ -255,7 +249,6 @@
       backdrop-filter: blur(8px);
     }
 
-    /* ---------- Controls ---------- */
     .controls{
       width: 100%;
       max-width: 680px;
@@ -310,7 +303,6 @@
       box-shadow: 0 10px 30px rgba(255,59,107,.14), 0 0 0 1px rgba(255,255,255,.05) inset;
     }
 
-    /* ---------- Settings Panel ---------- */
     .panel{
     border-radius: 22px;
     background:
@@ -329,7 +321,6 @@
     overflow: hidden;
     }
 
-    /* Top accent stripe */
     .panel::before{
     content:"";
     position:absolute;
@@ -460,7 +451,6 @@
       color: rgba(255,255,255,.85);
     }
 
-    /* Workout complete overlay text */
     .complete{
       position:absolute;
       inset: 0;
@@ -606,14 +596,6 @@
   </div>
 
   <script>
-    /**
-     * Neon Boxing Interval Timer
-     * - Phases: PREPARE -> ROUND -> REST, repeated for totalRounds
-     * - Sounds: start of round, end of round, warning (N seconds remaining in round)
-     * - Settings: saved to LocalStorage and applied dynamically (no reload)
-     */
-
-    // ---------- Utilities ----------
     const pad2 = (n) => String(n).padStart(2, "0");
 
     function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
@@ -625,14 +607,9 @@
       return `${pad2(mm)}:${pad2(ss)}`;
     }
 
-    /**
-     * Parse time input:
-     * Accepts "MM:SS", "M:SS", "SS" (treated as seconds), or "MMSS" (e.g., 130 => 1:30)
-     */
     function parseTimeToSeconds(str){
       const s = String(str || "").trim();
 
-      // If mm:ss
       if (s.includes(":")){
         const [mRaw, sRaw] = s.split(":");
         const mm = Number(mRaw);
@@ -641,12 +618,10 @@
         return clamp(mm, 0, 999) * 60 + clamp(ss, 0, 59);
       }
 
-      // Digits only
       if (/^\d+$/.test(s)){
         const num = Number(s);
         if (!Number.isFinite(num)) return null;
 
-        // If 0..5999 treat as seconds if small, else MMSS style if 3-4 digits
         if (s.length <= 2) return clamp(num, 0, 59); // seconds
         if (s.length === 3){ // MSS
           const mm = Math.floor(num / 100);
@@ -670,7 +645,6 @@
       return seconds;
     }
 
-    // ---------- Simple WebAudio beeps (no external files) ----------
     class Beeper{
       constructor(){
         this.ctx = null;
@@ -709,7 +683,6 @@
         osc.stop(t0 + duration + 0.02);
       }
       async pattern(name){
-        // Distinct patterns: start, end, warning
         if (name === "roundStart"){
           await this.beep({freq: 920, duration: 0.08, gain: 0.06});
           await this.beep({freq: 1160, duration: 0.08, gain: 0.06});
@@ -725,7 +698,6 @@
       }
     }
 
-    // ---------- Timer Engine ----------
     const SEGMENT = {
       PREPARE: "PREPARE",
       ROUND: "ROUND",
@@ -766,7 +738,6 @@
           this.settings.prepareSeconds = clamp(Number(data.prepareSeconds) || DEFAULTS.prepareSeconds, 0, 60 * 60);
           this.settings.warnSeconds = clamp(Number(data.warnSeconds) || DEFAULTS.warnSeconds, 0, 60 * 60);
         }catch(e){
-          // Ignore malformed storage
         }
       }
 
@@ -775,7 +746,6 @@
       }
 
       applySettings(next){
-        // Apply dynamically (even during run). Keeps current segment progress coherent.
         const prevSegTotal = this._segmentTotalSeconds();
 
         this.settings = {
@@ -786,14 +756,12 @@
           warnSeconds: clamp(next.warnSeconds, 0, 60 * 60),
         };
 
-        // If current segment is ROUND/REST/PREPARE, rescale remaining time proportionally
         const newSegTotal = this._segmentTotalSeconds();
         if (prevSegTotal > 0 && newSegTotal > 0 && this.segment !== SEGMENT.COMPLETE){
           const progress = 1 - (this.remaining / prevSegTotal);
           this.remaining = clamp(Math.round(newSegTotal * (1 - progress)), 0, newSegTotal);
         }
 
-        // If rounds reduced below current, clamp round index
         this.currentRound = clamp(this.currentRound, 0, this.settings.totalRounds);
 
         this._emitAll();
@@ -803,7 +771,7 @@
       reset(silent=false){
         this.running = false;
         this.segment = SEGMENT.PREPARE;
-        this.currentRound = 0;           // 0 during prepare
+        this.currentRound = 0;         
         this.remaining = this.settings.prepareSeconds;
         this.totalElapsed = 0;
         this._warnFired = false;
@@ -850,8 +818,7 @@
 
       plannedTotalDuration(){
         const {totalRounds, roundSeconds, restSeconds, prepareSeconds} = this.settings;
-        // Prepare happens once at the beginning.
-        // Rest happens after each round except the last.
+
         const restTotal = Math.max(0, totalRounds - 1) * restSeconds;
         return prepareSeconds + totalRounds * roundSeconds + restTotal;
       }
@@ -878,7 +845,6 @@
         this._warnFired = false;
 
         if (this.segment === SEGMENT.PREPARE){
-          // Move into Round 1
           this.segment = SEGMENT.ROUND;
           this.currentRound = 1;
           this.remaining = this.settings.roundSeconds;
@@ -888,7 +854,6 @@
 
         if (this.segment === SEGMENT.ROUND){
           this.onSound?.("roundEnd");
-          // After round: either rest or complete
           if (this.currentRound >= this.settings.totalRounds){
             this.segment = SEGMENT.COMPLETE;
             this.remaining = 0;
@@ -897,14 +862,12 @@
             this.onComplete?.(this.getState());
             return;
           }
-          // go rest
           this.segment = SEGMENT.REST;
           this.remaining = this.settings.restSeconds;
           return;
         }
 
         if (this.segment === SEGMENT.REST){
-          // Next round
           this.segment = SEGMENT.ROUND;
           this.currentRound += 1;
           this.remaining = this.settings.roundSeconds;
@@ -921,13 +884,10 @@
           const dt = (ts - this._lastTs) / 1000;
           this._lastTs = ts;
 
-          // Accumulate elapsed
           this.totalElapsed += dt;
 
-          // Decrement remaining
           this.remaining -= dt;
 
-          // Warning trigger (only once per round)
           if (this.segment === SEGMENT.ROUND && !this._warnFired && this.settings.warnSeconds > 0){
             if (this.remaining <= this.settings.warnSeconds && this.remaining > 0){
               this._warnFired = true;
@@ -935,19 +895,15 @@
             }
           }
 
-          // Segment end
           if (this.remaining <= 0){
-            // Carry leftover time into next segment to keep timing accurate
             let carry = -this.remaining;
             this._advanceSegment();
 
-            // If completed, emit once and stop.
             if (this.segment === SEGMENT.COMPLETE){
               this._emitAll();
               return;
             }
 
-            // Apply carry to next segment
             this.remaining = Math.max(0, this.remaining - carry);
           }
 
@@ -959,7 +915,6 @@
       }
     }
 
-    // ---------- DOM Wiring ----------
     const el = {
       phaseText: document.getElementById("phaseText"),
       roundText: document.getElementById("roundText"),
@@ -983,7 +938,6 @@
       warnTimeInput: document.getElementById("warnTimeInput"),
     };
 
-    // SVG ring math
     const R = 42;
     const CIRC = 2 * Math.PI * R;
     el.progressRing.style.strokeDasharray = `${CIRC} ${CIRC}`;
@@ -1001,15 +955,12 @@
       onSound: (name) => beeper.pattern(name)
     });
 
-    // Load persisted settings
     timer.loadSettings();
     syncInputsFromSettings();
-    // initial render
     render(timer.getState());
     renderControls(timer.getState());
     updatePlannedTotal();
 
-    // ---------- Render ----------
     function segmentLabel(seg){
       if (seg === SEGMENT.PREPARE) return "PREPARE";
       if (seg === SEGMENT.ROUND) return "ROUND";
@@ -1018,28 +969,24 @@
     }
 
     function render(st){
-      // Top status
+
       el.phaseText.textContent = st.segment === SEGMENT.COMPLETE ? "Complete" : st.segment[0] + st.segment.slice(1).toLowerCase();
       el.segmentText.textContent = segmentLabel(st.segment);
 
-      // Round text
       const cur = (st.segment === SEGMENT.PREPARE) ? 0 : st.currentRound;
       el.roundText.textContent = `Round ${cur} / ${st.totalRounds}`;
 
-      // Time display
       el.timeText.textContent = formatMMSS(st.remaining);
 
-      // Total elapsed
       el.totalElapsed.textContent = formatMMSS(st.totalElapsed);
 
-      // Warning pulse class
       el.timerWrap.classList.toggle("warning", st.warnActive);
 
-      // Progress ring
+
       const offset = CIRC * (1 - st.progress);
       el.progressRing.style.strokeDashoffset = String(offset);
 
-      // Hide complete overlay unless complete
+
       if (!st.complete){
         el.completeOverlay.classList.remove("show");
       }
@@ -1101,9 +1048,7 @@
         inp.addEventListener("blur", applyInputsToTimer);
       });
 
-    // ---------- Controls ----------
     el.startBtn.addEventListener("click", async () => {
-      // Make sure audio can start on user gesture
       await beeper.beep({freq: 1200, duration: 0.02, gain: 0.0001}); // silent-ish "unlock"
       timer.start();
       renderControls(timer.getState());
@@ -1115,18 +1060,15 @@
     });
 
     el.resetBtn.addEventListener("click", () => {
-      // Reset settings to defaults + timer state
       timer.applySettings({...DEFAULTS});
       timer.reset(true);
-      timer.saveSettings(); // keep defaults persisted
+      timer.saveSettings(); 
       syncInputsFromSettings();
       render(timer.getState());
       renderControls(timer.getState());
     });
 
-    // ---------- Keyboard shortcuts ----------
     window.addEventListener("keydown", (e) => {
-      // Ignore when typing in inputs
       const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
       const isTyping = tag === "input" || tag === "textarea";
       if (isTyping) return;
@@ -1144,8 +1086,6 @@
       }
     });
 
-    // ---------- Mobile niceties ----------
-    // Prevent double-tap zoom on buttons (keeps UX snappy)
     document.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("touchstart", () => {}, {passive:true});
     });
